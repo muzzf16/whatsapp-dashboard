@@ -5,6 +5,7 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 const { initWhatsApp } = require('./services/whatsappService');
+const logger = require('./utils/logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -24,6 +25,16 @@ const io = new Server(server, {
 app.use(cors()); // Mengaktifkan CORS untuk semua route
 app.use(express.json()); // Mem-parsing body JSON
 
+// Request logging middleware
+app.use((req, res, next) => {
+    logger.info('Incoming request', {
+        method: req.method,
+        url: req.url,
+        ip: req.ip
+    });
+    next();
+});
+
 // Menggunakan routes yang telah didefinisikan
 app.use('/api', whatsappRoutes);
 
@@ -33,15 +44,28 @@ app.get('/', (req, res) => {
 
 // Menghubungkan Socket.IO
 io.on('connection', (socket) => {
-    console.log('A user connected to WebSocket:', socket.id);
+    logger.info('A user connected to WebSocket', { socketId: socket.id });
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+        logger.info('User disconnected', { socketId: socket.id });
+    });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    logger.error('Unhandled error', { 
+        error: err.message,
+        stack: err.stack,
+        url: req.url
+    });
+    res.status(500).json({ 
+        status: 'error', 
+        message: 'Internal server error' 
     });
 });
 
 // Memulai server
 server.listen(PORT, () => {
-    console.log(`Backend server is running on http://localhost:${PORT}`);
+    logger.info(`Backend server is running on http://localhost:${PORT}`);
     // Inisialisasi WhatsApp Service dan teruskan instance 'io'
     initWhatsApp(io);
 });
