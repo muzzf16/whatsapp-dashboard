@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const {
     sendMessageController,
+    sendReplyMessageController,
     sendBroadcastMessageController,
     sendMediaMessageController,
     getStatusController,
@@ -49,6 +50,7 @@ const upload = multer({
 });
 
 router.post('/send-message', sendMessageController);
+router.post('/send-reply', sendReplyMessageController);
 router.post('/send-broadcast', sendBroadcastMessageController);
 router.post('/send-media', sendMediaMessageController);
 router.get('/status', getStatusController);

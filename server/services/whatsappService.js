@@ -180,6 +180,36 @@ const sendMessage = async (to, message) => {
     }
 };
 
+// Send reply message
+const sendReplyMessage = async (to, message, quotedMessage) => {
+    if (connectionStatus !== 'connected' || !sock) {
+        const error = new Error('WhatsApp is not connected.');
+        logger.error('Attempt to send reply message while disconnected', { 
+            connectionStatus, 
+            sockExists: !!sock 
+        });
+        throw error;
+    }
+    
+    try {
+        const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+        logger.info('Sending reply message', { to: jid, message });
+        
+        // Send message with quoted message reference
+        const result = await sock.sendMessage(jid, { text: message }, { quoted: quotedMessage });
+        logger.info('Reply message sent successfully', { messageId: result?.key?.id });
+        
+        return result;
+    } catch (error) {
+        logger.error('Error sending reply message', { 
+            error: error.message, 
+            to,
+            message
+        });
+        throw error;
+    }
+};
+
 // Send media message (image/document)
 const sendMediaMessage = async (to, message, mediaUrl, mediaType) => {
     if (connectionStatus !== 'connected' || !sock) {
@@ -309,6 +339,7 @@ const reconnectWhatsApp = async () => {
 module.exports = {
     initWhatsApp,
     sendMessage,
+    sendReplyMessage,
     sendMediaMessage,
     getStatus,
     getQRCode,

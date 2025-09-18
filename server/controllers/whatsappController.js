@@ -45,6 +45,51 @@ const sendMessageController = async (req, res) => {
     }
 };
 
+const sendReplyMessageController = async (req, res) => {
+    const { number, message, quotedMessage } = req.body;
+    
+    // Validate input
+    const validation = validateMessageData(number, message);
+    if (!validation.isValid) {
+        logger.warn('Invalid reply message data received', { number, message });
+        return res.status(400).json({ 
+            status: 'error', 
+            message: validation.error 
+        });
+    }
+    
+    if (!quotedMessage) {
+        logger.warn('Quoted message is required for reply', { number, message });
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'Quoted message is required for reply.' 
+        });
+    }
+    
+    try {
+        logger.info('Sending reply message', { number, message });
+        await whatsappService.sendReplyMessage(number, message, quotedMessage);
+        logger.info('Reply message sent successfully', { number });
+        
+        res.status(200).json({ 
+            status: 'success', 
+            message: `Reply message sent to ${number}` 
+        });
+    } catch (error) {
+        logger.error('Failed to send reply message', { 
+            error: error.message, 
+            number,
+            message
+        });
+        
+        res.status(500).json({ 
+            status: 'error', 
+            message: 'Failed to send reply message.', 
+            details: error.message 
+        });
+    }
+};
+
 const sendBroadcastMessageController = async (req, res) => {
     const { numbers, message, delay = 1 } = req.body;
     
@@ -470,6 +515,7 @@ const toggleServerController = async (req, res) => {
 
 module.exports = {
     sendMessageController,
+    sendReplyMessageController,
     sendBroadcastMessageController,
     sendMediaMessageController,
     getStatusController,
