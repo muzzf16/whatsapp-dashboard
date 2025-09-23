@@ -8,299 +8,83 @@ const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
 
+const startSessionController = (req, res) => {
+    const { sessionId } = req.body;
+    if (!sessionId) {
+        return res.status(400).json({ status: 'error', message: 'sessionId is required' });
+    }
+    whatsappService.startNewSession(sessionId, req.app.get('io'));
+    res.status(200).json({ status: 'success', message: `Session ${sessionId} started` });
+};
+
 const sendMessageController = async (req, res) => {
-    const { number, message } = req.body;
-    
-    // Validate input
+    const { sessionId, number, message } = req.body;
     const validation = validateMessageData(number, message);
     if (!validation.isValid) {
-        logger.warn('Invalid message data received', { number, message });
-        return res.status(400).json({ 
-            status: 'error', 
-            message: validation.error 
-        });
+        return res.status(400).json({ status: 'error', message: validation.error });
     }
-    
-    try {
-        logger.info('Sending message', { number, message });
-        await whatsappService.sendMessage(number, message);
-        logger.info('Message sent successfully', { number });
-        
-        res.status(200).json({ 
-            status: 'success', 
-            message: `Message sent to ${number}` 
-        });
-    } catch (error) {
-        logger.error('Failed to send message', { 
-            error: error.message, 
-            number,
-            message
-        });
-        
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to send message.', 
-            details: error.message 
-        });
-    }
-};
 
-const sendReplyMessageController = async (req, res) => {
-    const { number, message, quotedMessage } = req.body;
-    
-    // Validate input
-    const validation = validateMessageData(number, message);
-    if (!validation.isValid) {
-        logger.warn('Invalid reply message data received', { number, message });
-        return res.status(400).json({ 
-            status: 'error', 
-            message: validation.error 
-        });
-    }
-    
-    if (!quotedMessage) {
-        logger.warn('Quoted message is required for reply', { number, message });
-        return res.status(400).json({ 
-            status: 'error', 
-            message: 'Quoted message is required for reply.' 
-        });
-    }
-    
     try {
-        logger.info('Sending reply message', { number, message });
-        await whatsappService.sendReplyMessage(number, message, quotedMessage);
-        logger.info('Reply message sent successfully', { number });
-        
-        res.status(200).json({ 
-            status: 'success', 
-            message: `Reply message sent to ${number}` 
-        });
+        await whatsappService.sendMessage(sessionId, number, message);
+        res.status(200).json({ status: 'success', message: `Message sent to ${number}` });
     } catch (error) {
-        logger.error('Failed to send reply message', { 
-            error: error.message, 
-            number,
-            message
-        });
-        
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to send reply message.', 
-            details: error.message 
-        });
-    }
-};
-
-const sendBroadcastMessageController = async (req, res) => {
-    const { numbers, message, delay = 1 } = req.body;
-    
-    // Validate input
-    const validation = validateBroadcastData(numbers, message);
-    if (!validation.isValid) {
-        logger.warn('Invalid broadcast data received', { numbers, message });
-        return res.status(400).json({ 
-            status: 'error', 
-            message: validation.error 
-        });
-    }
-    
-    try {
-        logger.info('Sending broadcast message', { count: numbers.length, message, delay });
-        
-        const results = [];
-        for (let i = 0; i < numbers.length; i++) {
-            try {
-                await whatsappService.sendMessage(numbers[i], message);
-                results.push({ number: numbers[i], status: 'success' });
-                logger.info('Broadcast message sent successfully', { number: numbers[i] });
-            } catch (error) {
-                logger.error('Failed to send broadcast message', { 
-                    error: error.message, 
-                    number: numbers[i],
-                    message
-                });
-                results.push({ number: numbers[i], status: 'error', error: error.message });
-            }
-            
-            // Add delay between messages to avoid rate limiting
-            if (i < numbers.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, delay * 1000));
-            }
-        }
-        
-        const successCount = results.filter(r => r.status === 'success').length;
-        const failCount = results.filter(r => r.status === 'error').length;
-        
-        logger.info('Broadcast completed', { successCount, failCount });
-        
-        res.status(200).json({ 
-            status: 'success', 
-            message: `Broadcast completed: ${successCount} successful, ${failCount} failed`,
-            results
-        });
-    } catch (error) {
-        logger.error('Failed to send broadcast message', { 
-            error: error.message,
-            numbers,
-            message
-        });
-        
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to send broadcast message.', 
-            details: error.message 
-        });
+        res.status(500).json({ status: 'error', message: 'Failed to send message.', details: error.message });
     }
 };
 
 const sendMediaMessageController = async (req, res) => {
-    const { number, message, mediaUrl, mediaType } = req.body;
-    
-    if (!number || !mediaUrl || !mediaType) {
-        return res.status(400).json({ 
-            status: 'error', 
-            message: 'Number, mediaUrl, and mediaType are required.' 
-        });
+    const { sessionId, number, message, mediaUrl, mediaType } = req.body;
+
+    if (!number || (!mediaUrl && !req.file) || !mediaType) {
+        return res.status(400).json({ status: 'error', message: 'Number, mediaType, and either mediaUrl or a file are required.' });
     }
-    
+
     try {
-        logger.info('Sending media message', { number, mediaType });
-        await whatsappService.sendMediaMessage(number, message, mediaUrl, mediaType);
-        logger.info('Media message sent successfully', { number });
-        
-        res.status(200).json({ 
-            status: 'success', 
-            message: `Media message sent to ${number}` 
-        });
+        if (req.file) {
+            const mediaBuffer = await fs.readFile(req.file.path);
+            await whatsappService.sendMediaMessage(sessionId, number, message, null, mediaType, mediaBuffer);
+            await fs.unlink(req.file.path);
+        } else {
+            await whatsappService.sendMediaMessage(sessionId, number, message, mediaUrl, mediaType);
+        }
+        res.status(200).json({ status: 'success', message: `Media message sent to ${number}` });
     } catch (error) {
-        logger.error('Failed to send media message', { 
-            error: error.message, 
-            number,
-            mediaType
-        });
-        
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to send media message.', 
-            details: error.message 
-        });
+        res.status(500).json({ status: 'error', message: 'Failed to send media message.', details: error.message });
     }
 };
 
 const getStatusController = (req, res) => {
-    try {
-        const status = whatsappService.getStatus();
-        logger.info('Status requested', { status });
-        res.status(200).json(status);
-    } catch (error) {
-        logger.error('Error getting status', { error: error.message });
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to get status.' 
-        });
-    }
+    const { sessionId } = req.params;
+    const status = whatsappService.getStatus(sessionId);
+    res.status(200).json(status);
 };
 
-const refreshStatusController = async (req, res) => {
-    try {
-        const status = await whatsappService.refreshConnectionStatus();
-        logger.info('Status refreshed', { status });
-        res.status(200).json(status);
-    } catch (error) {
-        logger.error('Error refreshing status', { error: error.message });
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to refresh status.' 
-        });
+const getQRCodeController = async (req, res) => {
+    const { sessionId } = req.params;
+    const { qr } = whatsappService.getQRCode(sessionId);
+    if (qr) {
+        const qrUrl = await qrcode.toDataURL(qr);
+        res.status(200).json({ qrUrl });
+    } else {
+        res.status(404).json({ status: 'error', message: 'QR code not available.' });
     }
 };
 
 const getMessagesController = (req, res) => {
-    try {
-        const messages = whatsappService.getMessages();
-        logger.info('Messages requested', { count: messages.messages.length });
-        res.status(200).json(messages);
-    } catch (error) {
-        logger.error('Error getting messages', { error: error.message });
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to get messages.' 
-        });
-    }
+    const { sessionId } = req.params;
+    const messages = whatsappService.getMessages(sessionId);
+    res.status(200).json(messages);
 };
 
-const getQRCodeController = async (req, res) => {
-    try {
-        const { qr } = whatsappService.getQRCode();
-        if (qr) {
-            const qrUrl = await qrcode.toDataURL(qr);
-            logger.info('QR code requested and generated');
-            res.status(200).json({ qrUrl });
-        } else {
-            logger.warn('QR code requested but not available');
-            res.status(404).json({ 
-                status: 'error', 
-                message: 'QR code not available.' 
-            });
-        }
-    } catch (err) {
-        logger.error('Failed to generate QR code', { error: err.message });
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to generate QR code.' 
-        });
+const disconnectSessionController = (req, res) => {
+    const { sessionId } = req.body;
+    if (!sessionId) {
+        return res.status(400).json({ status: 'error', message: 'sessionId is required' });
     }
+    whatsappService.disconnectWhatsApp(sessionId);
+    res.status(200).json({ status: 'success', message: `Session ${sessionId} disconnected` });
 };
 
-const getWebhookController = async (req, res) => {
-    try {
-        const url = await configService.getWebhookUrl();
-        logger.info('Webhook URL requested');
-        res.status(200).json({ webhookUrl: url });
-    } catch (error) {
-        logger.error('Failed to get webhook URL', { error: error.message });
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to get webhook URL.' 
-        });
-    }
-};
-
-const updateWebhookController = async (req, res) => {
-    const { url } = req.body;
-    
-    // Validate input
-    const validation = validateWebhookUrl(url);
-    if (!validation.isValid) {
-        logger.warn('Invalid webhook URL received', { url });
-        return res.status(400).json({ 
-            status: 'error', 
-            message: validation.error 
-        });
-    }
-    
-    try {
-        logger.info('Updating webhook URL', { url });
-        await configService.setWebhookUrl(url);
-        logger.info('Webhook URL updated successfully');
-        
-        res.status(200).json({ 
-            status: 'success', 
-            message: 'Webhook URL updated successfully.' 
-        });
-    } catch (error) {
-        logger.error('Failed to update webhook URL', { 
-            error: error.message, 
-            url
-        });
-        
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Failed to update webhook URL.' 
-        });
-    }
-};
-
-// Contact management controllers
 const addContactController = async (req, res) => {
     const { name, phone } = req.body;
     
@@ -480,57 +264,69 @@ const uploadContactsController = async (req, res) => {
     }
 };
 
-// Toggle server connection
-const toggleServerController = async (req, res) => {
-    const { action } = req.body;
-    
-    if (!action || (action !== 'connect' && action !== 'disconnect')) {
-        return res.status(400).json({ 
-            status: 'error', 
-            message: 'Action must be either "connect" or "disconnect".' 
-        });
-    }
-    
+const getWebhookController = async (req, res) => {
     try {
-        let result;
-        if (action === 'disconnect') {
-            logger.info('Disconnecting WhatsApp server');
-            result = await whatsappService.disconnectWhatsApp();
-        } else {
-            logger.info('Reconnecting WhatsApp server');
-            result = await whatsappService.reconnectWhatsApp();
-        }
-        
-        res.status(200).json(result);
+        const url = await configService.getWebhookUrl();
+        logger.info('Webhook URL requested');
+        res.status(200).json({ webhookUrl: url });
     } catch (error) {
-        logger.error('Failed to toggle server', { error: error.message, action });
-        
+        logger.error('Failed to get webhook URL', { error: error.message });
         res.status(500).json({ 
             status: 'error', 
-            message: 'Failed to toggle server.',
-            details: error.message
+            message: 'Failed to get webhook URL.' 
         });
     }
 };
 
+const updateWebhookController = async (req, res) => {
+    const { url } = req.body;
+    
+    // Validate input
+    const validation = validateWebhookUrl(url);
+    if (!validation.isValid) {
+        logger.warn('Invalid webhook URL received', { url });
+        return res.status(400).json({ 
+            status: 'error', 
+            message: validation.error 
+        });
+    }
+    
+    try {
+        logger.info('Updating webhook URL', { url });
+        await configService.setWebhookUrl(url);
+        logger.info('Webhook URL updated successfully');
+        
+        res.status(200).json({ 
+            status: 'success', 
+            message: 'Webhook URL updated successfully.' 
+        });
+    } catch (error) {
+        logger.error('Failed to update webhook URL', { 
+            error: error.message, 
+            url
+        });
+        
+        res.status(500).json({ 
+            status: 'error', 
+            message: 'Failed to update webhook URL.' 
+        });
+    }
+};
+
+
 module.exports = {
+    startSessionController,
+    disconnectSessionController,
     sendMessageController,
-    sendReplyMessageController,
-    sendBroadcastMessageController,
     sendMediaMessageController,
     getStatusController,
-    refreshStatusController,
-    getMessagesController,
     getQRCodeController,
-    getWebhookController,
-    updateWebhookController,
-    // Contact management controllers
+    getMessagesController,
     addContactController,
     getContactsController,
     searchContactsController,
     deleteContactController,
     uploadContactsController,
-    // Toggle server controller
-    toggleServerController
+    getWebhookController,
+    updateWebhookController
 };
-

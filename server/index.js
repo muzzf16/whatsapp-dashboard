@@ -35,8 +35,12 @@ app.use((req, res, next) => {
     next();
 });
 
+const specs = require('./utils/swagger');
+const swaggerUi = require('swagger-ui-express');
+
 // Menggunakan routes yang telah didefinisikan
 app.use('/api', whatsappRoutes);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 app.get('/', (req, res) => {
     res.send('<h1>WhatsApp API Backend</h1><p>Server is running and waiting for client connections.</p>');
@@ -66,6 +70,7 @@ app.use((err, req, res, next) => {
 // Memulai server
 server.listen(PORT, () => {
     logger.info(`Backend server is running on http://localhost:${PORT}`);
+    app.set('io', io);
+    
     // Inisialisasi WhatsApp Service dan teruskan instance 'io'
-    initWhatsApp(io);
-});
+    initWhatsApp(io);});
