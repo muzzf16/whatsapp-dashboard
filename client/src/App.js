@@ -13,7 +13,7 @@ import ContactManager from './components/ContactManager';
 
 import BroadcastFromFile from './components/BroadcastFromFile';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+const API_URL = '';
 
 export default function App() {
     const [socket, setSocket] = useState(null);
