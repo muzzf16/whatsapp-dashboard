@@ -76,12 +76,12 @@ const getMessagesController = (req, res) => {
     res.status(200).json(messages);
 };
 
-const disconnectSessionController = (req, res) => {
+const disconnectSessionController = async (req, res) => {
     const { sessionId } = req.body;
     if (!sessionId) {
         return res.status(400).json({ status: 'error', message: 'sessionId is required' });
     }
-    whatsappService.disconnectWhatsApp(sessionId);
+    await whatsappService.disconnectWhatsApp(sessionId);
     res.status(200).json({ status: 'success', message: `Session ${sessionId} disconnected` });
 };
 
@@ -314,6 +314,75 @@ const updateWebhookController = async (req, res) => {
 };
 
 
+const sendBroadcastFromFileController = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'File is required.'
+        });
+    }
+
+    const { message, delay, sessionId } = req.body;
+
+    if (!message || !delay || !sessionId) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Message, delay, and sessionId are required.'
+        });
+    }
+
+    try {
+        const filePath = req.file.path;
+        let data;
+
+        // Parse file based on type
+        if (req.file.mimetype === 'text/csv') {
+            data = await parseCSV(filePath);
+        } else {
+            data = await parseExcel(filePath);
+        }
+
+        // Extract phone numbers
+        const numbers = extractPhoneNumbers(data);
+
+        if (numbers.length === 0) {
+            await fs.unlink(filePath); // Clean up file
+            return res.status(400).json({
+                status: 'error',
+                message: 'No valid phone numbers found in the file.'
+            });
+        }
+
+        // Call the service function to send the broadcast
+        whatsappService.sendBroadcastFromFile(sessionId, numbers, message, delay);
+
+        // Clean up uploaded file
+        await fs.unlink(filePath);
+
+        res.status(200).json({
+            status: 'success',
+            message: `Broadcast started for ${numbers.length} numbers.`
+        });
+    } catch (error) {
+        logger.error('Failed to process broadcast from file', { error: error.message });
+
+        // Clean up uploaded file if it exists
+        if (req.file && req.file.path) {
+            try {
+                await fs.unlink(req.file.path);
+            } catch (unlinkError) {
+                logger.error('Failed to clean up uploaded file', { error: unlinkError.message });
+            }
+        }
+
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to process broadcast from file.',
+            details: error.message
+        });
+    }
+};
+
 module.exports = {
     startSessionController,
     disconnectSessionController,
@@ -328,5 +397,6 @@ module.exports = {
     deleteContactController,
     uploadContactsController,
     getWebhookController,
-    updateWebhookController
+    updateWebhookController,
+    sendBroadcastFromFileController
 };

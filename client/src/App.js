@@ -11,6 +11,8 @@ import StatusBadge from './components/StatusBadge';
 import Notification from './components/Notification';
 import ContactManager from './components/ContactManager';
 
+import BroadcastFromFile from './components/BroadcastFromFile';
+
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 export default function App() {
@@ -19,6 +21,7 @@ export default function App() {
     const [status, setStatus] = useState('disconnected');
     const [qrCodeUrl, setQrCodeUrl] = useState(null);
     const [messages, setMessages] = useState([]);
+    const [file, setFile] = useState(null);
     
     // Single message state
     const [sendTo, setSendTo] = useState('');
@@ -153,24 +156,60 @@ export default function App() {
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!sendTo || !sendMessageText || status !== 'connected') {
-            showNotification('Number and message are required, and status must be connected.', 'error');
+        if (!sendTo || status !== 'connected') {
+            showNotification('Number and connected status are required.', 'error');
             return;
         }
+
+        if (!file && !sendMessageText) {
+            showNotification('Message or file is required.', 'error');
+            return;
+        }
+
         setIsSending(true);
-        try {
-            await axios.post(`${API_URL}/api/send-message`, {
-                sessionId,
-                number: sendTo,
-                message: sendMessageText,
-            });
-            showNotification('Message sent successfully!', 'success');
-            setSendTo('');
-            setSendMessageText('');
-        } catch (error) {
-            showNotification(error.response?.data?.details || 'Failed to send message.', 'error');
-        } finally {
-            setIsSending(false);
+
+        if (file) {
+            const formData = new FormData();
+            formData.append('sessionId', sessionId);
+            formData.append('number', sendTo);
+            formData.append('message', sendMessageText);
+            formData.append('media', file);
+            // a simple way to determine mediaType, you might want a more robust solution
+            const mediaType = file.type.startsWith('image') ? 'image' : 'document';
+            formData.append('mediaType', mediaType);
+
+            try {
+                await axios.post(`${API_URL}/api/send-media`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+                showNotification('Media message sent successfully!', 'success');
+                setSendTo('');
+                setSendMessageText('');
+                setFile(null);
+                // Clear the file input
+                document.getElementById('file').value = '';
+            } catch (error) {
+                showNotification(error.response?.data?.details || 'Failed to send media message.', 'error');
+            } finally {
+                setIsSending(false);
+            }
+        } else {
+            try {
+                await axios.post(`${API_URL}/api/send-message`, {
+                    sessionId,
+                    number: sendTo,
+                    message: sendMessageText,
+                });
+                showNotification('Message sent successfully!', 'success');
+                setSendTo('');
+                setSendMessageText('');
+            } catch (error) {
+                showNotification(error.response?.data?.details || 'Failed to send message.', 'error');
+            } finally {
+                setIsSending(false);
+            }
         }
     };
 
@@ -227,6 +266,7 @@ export default function App() {
                             isSending={isSending}
                             handleSendMessage={handleSendMessage}
                             status={status}
+                            setFile={setFile}
                         />
                         
                         <WebhookManager 
@@ -245,6 +285,12 @@ export default function App() {
                                     setIsSavingWebhook(false);
                                 }
                             }}
+                        />
+
+                        <BroadcastFromFile 
+                            sessionId={sessionId}
+                            status={status}
+                            showNotification={showNotification}
                         />
                     </div>
                     <div className="lg:col-span-2">

@@ -7,7 +7,8 @@ const MessageSender = ({
     setSendMessageText, 
     isSending, 
     handleSendMessage, 
-    status 
+    status, 
+    setFile // new prop
 }) => {
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -35,6 +36,17 @@ const MessageSender = ({
                         placeholder="Ketik pesan Anda di sini..."
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                         disabled={status !== 'connected'}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="file" className="block text-sm font-medium text-gray-700">
+                        File (Gambar/Dokumen)
+                    </label>
+                    <input
+                        type="file"
+                        id="file"
+                        onChange={(e) => setFile(e.target.files[0])}
+                        className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                     />
                 </div>
                 <div className="flex justify-end">

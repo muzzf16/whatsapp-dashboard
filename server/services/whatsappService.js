@@ -1,4 +1,6 @@
+const logger = require('../utils/logger');
 const sessionManager = require('./sessionManager');
+const axios = require('axios');
 
 const initWhatsApp = (io) => {
   // You might want to load existing sessions from a database here
@@ -67,12 +69,39 @@ const startNewSession = (sessionId, io) => {
   return session;
 };
 
-const disconnectWhatsApp = (sessionId) => {
+const disconnectWhatsApp = async (sessionId) => {
     const session = sessionManager.getSession(sessionId);
     if (session && session.sock) {
-        session.sock.logout();
-        sessionManager.deleteSession(sessionId);
+        await session.sock.logout();
+        await sessionManager.deleteSession(sessionId);
     }
+};
+
+const sendBroadcastFromFile = async (sessionId, numbers, message, delay) => {
+    const session = sessionManager.getSession(sessionId);
+    if (!session || session.connectionStatus !== 'connected') {
+        logger.error(`Session ${sessionId} is not connected. Cannot send broadcast.`);
+        return;
+    }
+
+    logger.info(`Starting broadcast for session ${sessionId} to ${numbers.length} numbers with a delay of ${delay} seconds.`);
+
+    for (let i = 0; i < numbers.length; i++) {
+        const number = numbers[i];
+        try {
+            await sendMessage(sessionId, number, message);
+            logger.info(`Broadcast message sent to ${number} in session ${sessionId}`);
+        } catch (error) {
+            logger.error(`Failed to send broadcast message to ${number} in session ${sessionId}`, { error: error.message });
+        }
+
+        // Wait for the specified delay
+        if (i < numbers.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        }
+    }
+
+    logger.info(`Broadcast finished for session ${sessionId}.`);
 };
 
 module.exports = {
@@ -84,4 +113,5 @@ module.exports = {
   getMessages,
   startNewSession,
   disconnectWhatsApp,
+  sendBroadcastFromFile,
 };

@@ -15,6 +15,7 @@ const {
     uploadContactsController,
     getWebhookController,
     updateWebhookController,
+    sendBroadcastFromFileController,
     toggleServerController
 } = require('../controllers/whatsappController');
 
@@ -396,6 +397,36 @@ router.delete('/contacts/:id', deleteContactController);
  *         description: Failed to upload contacts
  */
 router.post('/contacts/upload', upload.single('file'), uploadContactsController);
+
+/**
+ * @swagger
+ * /api/broadcast-from-file:
+ *   post:
+ *     summary: Send a broadcast message from a file
+ *     tags: [Messages]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sessionId:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               delay:
+ *                 type: integer
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Broadcast started successfully
+ *       500:
+ *         description: Failed to start broadcast
+ */
+router.post('/broadcast-from-file', upload.single('file'), sendBroadcastFromFileController);
 
 /**
  * @swagger

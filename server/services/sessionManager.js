@@ -2,6 +2,9 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const qrcode = require('qrcode');
 const logger = require('../utils/logger');
 
+const fs = require('fs').promises;
+const path = require('path');
+
 const sessions = new Map();
 
 const createSession = (sessionId) => {
@@ -21,7 +24,14 @@ const getSession = (sessionId) => {
   return sessions.get(sessionId);
 };
 
-const deleteSession = (sessionId) => {
+const deleteSession = async (sessionId) => {
+  const authPath = path.join(process.cwd(), `auth_info_baileys_${sessionId}`);
+  try {
+    await fs.rm(authPath, { recursive: true, force: true });
+    logger.info(`Authentication directory for session ${sessionId} deleted`);
+  } catch (error) {
+    logger.error(`Error deleting authentication directory for session ${sessionId}`, error);
+  }
   sessions.delete(sessionId);
 };
 
