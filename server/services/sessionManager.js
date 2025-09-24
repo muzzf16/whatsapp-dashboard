@@ -1,11 +1,28 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode');
 const logger = require('../utils/logger');
+const axios = require('axios');
+const configService = require('./configService');
 
 const fs = require('fs').promises;
 const path = require('path');
 
 const sessions = new Map();
+
+async function callWebhook(payload) {
+  const webhookUrl = await configService.getWebhookUrl();
+  if (!webhookUrl) {
+    return;
+  }
+
+  logger.info(`[WEBHOOK] Sending to: ${webhookUrl}`);
+  try {
+    await axios.post(webhookUrl, payload, { headers: { 'Content-Type': 'application/json' } });
+    logger.info(`[WEBHOOK] Successfully sent payload.`);
+  } catch (error) {
+    logger.error(`[WEBHOOK] Error sending payload:`, error.message);
+  }
+}
 
 const createSession = (sessionId) => {
   const session = {
@@ -93,6 +110,16 @@ const startSession = async (sessionId, io) => {
       if (session.messageLogs.length > 100) session.messageLogs.pop();
 
       io.emit('new_message', { sessionId, log });
+
+      // Trigger webhook
+      const webhookPayload = {
+        sessionId,
+        from: sender,
+        text,
+        timestamp: log.timestamp,
+        originalMessage: msg
+      };
+      await callWebhook(webhookPayload);
     }
   });
 };

@@ -24,7 +24,7 @@ const PORT = process.env.PORT || 4000;
 // Setup Socket.IO dengan konfigurasi CORS
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:3000", "http://localhost:3003"], // Izinkan koneksi dari frontend React
+        origin: ["http://localhost:3000", "http://localhost:3003", "https://wa.kenes.biz.id"], // Izinkan koneksi dari frontend React
         methods: ["GET", "POST"]
     }
 });

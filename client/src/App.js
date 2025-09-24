@@ -13,7 +13,7 @@ import ContactManager from './components/ContactManager';
 
 import BroadcastFromFile from './components/BroadcastFromFile';
 
-const API_URL = 'http://localhost:4000'; 
+const API_URL = 'https://api.kenes.biz.id'; 
 
 export default function App() {
     const [socket, setSocket] = useState(null);
