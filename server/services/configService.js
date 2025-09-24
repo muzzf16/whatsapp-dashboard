@@ -13,8 +13,14 @@ async function readConfig() {
     } catch (error) {
         if (error.code === 'ENOENT') {
             logger.info('Config file not found, creating default config');
-            await writeConfig({ webhookUrl: "" });
-            return { webhookUrl: "" };
+            const defaultConfig = {
+                webhookUrl: "",
+                webhookTimeout: 10000, // 10 seconds default
+                webhookRetries: 3,
+                webhookSecret: null // For request signing
+            };
+            await writeConfig(defaultConfig);
+            return defaultConfig;
         }
         logger.error("Error reading config file:", error);
         throw error;
@@ -31,10 +37,30 @@ async function writeConfig(config) {
     }
 }
 
-const getWebhookUrl = async () => {
+const getWebhookConfig = async () => {
     try {
         const config = await readConfig();
-        return config.webhookUrl || "";
+        return {
+            webhookUrl: config.webhookUrl || "",
+            webhookTimeout: config.webhookTimeout || 10000,
+            webhookRetries: config.webhookRetries || 3,
+            webhookSecret: config.webhookSecret || null
+        };
+    } catch (error) {
+        logger.error("Error getting webhook config:", error);
+        return {
+            webhookUrl: "",
+            webhookTimeout: 10000,
+            webhookRetries: 3,
+            webhookSecret: null
+        };
+    }
+};
+
+const getWebhookUrl = async () => {
+    try {
+        const config = await getWebhookConfig();
+        return config.webhookUrl;
     } catch (error) {
         logger.error("Error getting webhook URL:", error);
         return "";
@@ -53,7 +79,25 @@ const setWebhookUrl = async (url) => {
     }
 };
 
+// New functions to manage webhook configuration
+const setWebhookConfig = async (webhookConfig) => {
+    try {
+        const config = await readConfig();
+        if (webhookConfig.webhookUrl !== undefined) config.webhookUrl = webhookConfig.webhookUrl;
+        if (webhookConfig.webhookTimeout !== undefined) config.webhookTimeout = webhookConfig.webhookTimeout;
+        if (webhookConfig.webhookRetries !== undefined) config.webhookRetries = webhookConfig.webhookRetries;
+        if (webhookConfig.webhookSecret !== undefined) config.webhookSecret = webhookConfig.webhookSecret;
+        await writeConfig(config);
+        logger.info('Webhook config updated successfully', { webhookConfig });
+    } catch (error) {
+        logger.error("Error setting webhook config:", error);
+        throw error;
+    }
+};
+
 module.exports = {
     getWebhookUrl,
     setWebhookUrl,
+    getWebhookConfig,
+    setWebhookConfig
 };

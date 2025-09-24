@@ -439,11 +439,11 @@ router.post('/broadcast-from-file', upload.single('file'), sendBroadcastFromFile
  * @swagger
  * /api/webhook:
  *   get:
- *     summary: Get the current webhook URL
+ *     summary: Get the current webhook configuration
  *     tags: [Webhook]
  *     responses:
  *       200:
- *         description: The webhook URL
+ *         description: The webhook configuration
  *         content:
  *           application/json:
  *             schema:
@@ -451,8 +451,20 @@ router.post('/broadcast-from-file', upload.single('file'), sendBroadcastFromFile
  *               properties:
  *                 webhookUrl:
  *                   type: string
+ *                   description: Current webhook URL
+ *                 webhookTimeout:
+ *                   type: number
+ *                   description: Timeout for webhook requests in milliseconds
+ *                   example: 10000
+ *                 webhookRetries:
+ *                   type: number
+ *                   description: Number of retry attempts for failed webhook requests
+ *                   example: 3
+ *                 hasWebhookSecret:
+ *                   type: boolean
+ *                   description: Whether a webhook secret is configured
  *       500:
- *         description: Failed to get webhook URL
+ *         description: Failed to get webhook config
  */
 router.get('/webhook', getWebhookController);
 
@@ -460,7 +472,7 @@ router.get('/webhook', getWebhookController);
  * @swagger
  * /api/webhook:
  *   post:
- *     summary: Update the webhook URL
+ *     summary: Update the webhook configuration
  *     tags: [Webhook]
  *     requestBody:
  *       required: true
@@ -471,11 +483,25 @@ router.get('/webhook', getWebhookController);
  *             properties:
  *               url:
  *                 type: string
+ *                 description: Webhook URL to receive incoming messages
+ *               timeout:
+ *                 type: number
+ *                 description: Timeout for webhook requests in milliseconds (1000-60000)
+ *                 example: 10000
+ *               retries:
+ *                 type: number
+ *                 description: Number of retry attempts for failed webhook requests (0-10)
+ *                 example: 3
+ *               secret:
+ *                 type: string
+ *                 description: Secret for signing webhook requests (optional, can be null to remove)
  *     responses:
  *       200:
- *         description: Webhook URL updated successfully
+ *         description: Webhook configuration updated successfully
+ *       400:
+ *         description: Invalid configuration provided
  *       500:
- *         description: Failed to update webhook URL
+ *         description: Failed to update webhook config
  */
 router.post('/webhook', updateWebhookController);
 

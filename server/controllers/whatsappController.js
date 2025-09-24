@@ -266,49 +266,79 @@ const uploadContactsController = async (req, res) => {
 
 const getWebhookController = async (req, res) => {
     try {
-        const url = await configService.getWebhookUrl();
-        logger.info('Webhook URL requested');
-        res.status(200).json({ webhookUrl: url });
+        const config = await configService.getWebhookConfig();
+        logger.info('Webhook config requested');
+        res.status(200).json({ 
+            webhookUrl: config.webhookUrl,
+            webhookTimeout: config.webhookTimeout,
+            webhookRetries: config.webhookRetries,
+            hasWebhookSecret: !!config.webhookSecret
+        });
     } catch (error) {
-        logger.error('Failed to get webhook URL', { error: error.message });
+        logger.error('Failed to get webhook config', { error: error.message });
         res.status(500).json({ 
             status: 'error', 
-            message: 'Failed to get webhook URL.' 
+            message: 'Failed to get webhook config.' 
         });
     }
 };
 
 const updateWebhookController = async (req, res) => {
-    const { url } = req.body;
+    const { url, timeout, retries, secret } = req.body;
     
-    // Validate input
-    const validation = validateWebhookUrl(url);
-    if (!validation.isValid) {
-        logger.warn('Invalid webhook URL received', { url });
+    // Validate webhook URL if provided
+    if (url !== undefined) {
+        const validation = validateWebhookUrl(url);
+        if (!validation.isValid) {
+            logger.warn('Invalid webhook URL received', { url });
+            return res.status(400).json({ 
+                status: 'error', 
+                message: validation.error 
+            });
+        }
+    }
+    
+    // Validate timeout if provided
+    if (timeout !== undefined && (typeof timeout !== 'number' || timeout < 1000 || timeout > 60000)) {
+        logger.warn('Invalid webhook timeout received', { timeout });
         return res.status(400).json({ 
             status: 'error', 
-            message: validation.error 
+            message: 'Webhook timeout must be a number between 1000 and 60000 milliseconds' 
+        });
+    }
+    
+    // Validate retries if provided
+    if (retries !== undefined && (typeof retries !== 'number' || retries < 0 || retries > 10)) {
+        logger.warn('Invalid webhook retries received', { retries });
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'Webhook retries must be a number between 0 and 10' 
         });
     }
     
     try {
-        logger.info('Updating webhook URL', { url });
-        await configService.setWebhookUrl(url);
-        logger.info('Webhook URL updated successfully');
+        const webhookConfig = {};
+        if (url !== undefined) webhookConfig.webhookUrl = url;
+        if (timeout !== undefined) webhookConfig.webhookTimeout = timeout;
+        if (retries !== undefined) webhookConfig.webhookRetries = retries;
+        if (secret !== undefined) webhookConfig.webhookSecret = secret; // Secret can be null to remove it
+        
+        logger.info('Updating webhook config', { webhookConfig: { ...webhookConfig, secret: secret ? '[REDACTED]' : undefined } });
+        await configService.setWebhookConfig(webhookConfig);
+        logger.info('Webhook config updated successfully');
         
         res.status(200).json({ 
             status: 'success', 
-            message: 'Webhook URL updated successfully.' 
+            message: 'Webhook configuration updated successfully.' 
         });
     } catch (error) {
-        logger.error('Failed to update webhook URL', { 
-            error: error.message, 
-            url
+        logger.error('Failed to update webhook config', { 
+            error: error.message
         });
         
         res.status(500).json({ 
             status: 'error', 
-            message: 'Failed to update webhook URL.' 
+            message: 'Failed to update webhook config.' 
         });
     }
 };

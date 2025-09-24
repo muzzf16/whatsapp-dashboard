@@ -1,3 +1,6 @@
 {
-  "webhookUrl": "https://n8n.kenes.biz.id/webhook/cs-whatsapp"
+  "webhookUrl": "https://n8n.kenes.biz.id/webhook/cs-whatsapp",
+  "webhookTimeout": 10000,
+  "webhookRetries": 3,
+  "webhookSecret": null
 }

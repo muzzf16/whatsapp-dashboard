@@ -2,6 +2,7 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const qrcode = require('qrcode');
 const logger = require('../utils/logger');
 const axios = require('axios');
+const crypto = require('crypto');
 const configService = require('./configService');
 
 const fs = require('fs').promises;
@@ -10,17 +11,74 @@ const path = require('path');
 const sessions = new Map();
 
 async function callWebhook(payload) {
-  const webhookUrl = await configService.getWebhookUrl();
-  if (!webhookUrl) {
+  const webhookConfig = await configService.getWebhookConfig();
+  
+  if (!webhookConfig.webhookUrl) {
     return;
   }
 
-  logger.info(`[WEBHOOK] Sending to: ${webhookUrl}`);
-  try {
-    await axios.post(webhookUrl, payload, { headers: { 'Content-Type': 'application/json' } });
-    logger.info(`[WEBHOOK] Successfully sent payload.`);
-  } catch (error) {
-    logger.error(`[WEBHOOK] Error sending payload:`, error.message);
+  // Add timestamp and message type to payload
+  const enhancedPayload = {
+    ...payload,
+    timestamp: new Date().toISOString(),
+    type: 'incoming_message'
+  };
+
+  // Create signature if webhook secret exists
+  let headers = { 'Content-Type': 'application/json' };
+  if (webhookConfig.webhookSecret) {
+    const signature = crypto
+      .createHmac('sha256', webhookConfig.webhookSecret)
+      .update(JSON.stringify(enhancedPayload))
+      .digest('hex');
+    headers['X-Webhook-Signature'] = `sha256=${signature}`;
+  }
+
+  logger.info(`[WEBHOOK] Sending to: ${webhookConfig.webhookUrl}`, { 
+    payloadSize: JSON.stringify(enhancedPayload).length 
+  });
+
+  // Retry mechanism with exponential backoff
+  let lastError;
+  for (let attempt = 0; attempt <= webhookConfig.webhookRetries; attempt++) {
+    try {
+      const response = await axios.post(webhookConfig.webhookUrl, enhancedPayload, {
+        headers,
+        timeout: webhookConfig.webhookTimeout,
+        validateStatus: (status) => status < 500 // Don't throw for 4xx errors, only 5xx
+      });
+
+      if (response.status >= 200 && response.status < 300) {
+        logger.info(`[WEBHOOK] Successfully sent payload on attempt ${attempt + 1}`, { 
+          status: response.status,
+          attempt: attempt + 1
+        });
+        return; // Success, exit retry loop
+      } else {
+        logger.warn(`[WEBHOOK] Received non-success status: ${response.status}`, {
+          status: response.status,
+          attempt: attempt + 1
+        });
+        if (attempt === webhookConfig.webhookRetries) {
+          logger.error(`[WEBHOOK] Final attempt failed with status: ${response.status}`);
+        }
+      }
+    } catch (error) {
+      lastError = error;
+      logger.error(`[WEBHOOK] Error sending payload on attempt ${attempt + 1}:`, error.message);
+      
+      if (attempt < webhookConfig.webhookRetries) {
+        // Exponential backoff: wait 1s, 2s, 4s, etc.
+        const delay = Math.pow(2, attempt) * 1000;
+        logger.info(`[WEBHOOK] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  // If all attempts failed, log the final error
+  if (lastError) {
+    logger.error(`[WEBHOOK] All ${webhookConfig.webhookRetries + 1} attempts failed. Last error:`, lastError.message);
   }
 }
 
