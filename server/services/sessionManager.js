@@ -17,11 +17,11 @@ async function callWebhook(payload) {
     return;
   }
 
-  // Add timestamp and message type to payload
+  // Add timestamp to payload if not already present, but preserve any existing fields
+  // The original payload already contains compatibility fields, so we just add timestamp
   const enhancedPayload = {
     ...payload,
-    timestamp: new Date().toISOString(),
-    type: 'incoming_message'
+    timestamp: payload.timestamp || new Date().toISOString() // Use existing timestamp if present
   };
 
   // Create signature if webhook secret exists
@@ -175,7 +175,11 @@ const startSession = async (sessionId, io) => {
         from: sender,
         text,
         timestamp: log.timestamp,
-        originalMessage: msg
+        originalMessage: msg,
+        // Add commonly expected fields for webhook compatibility
+        number: sender, // For compatibility with systems expecting 'number'
+        message: text,  // For compatibility with systems expecting 'message'
+        type: 'incoming_message' // For routing in webhook consumers
       };
       await callWebhook(webhookPayload);
     }

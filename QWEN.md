@@ -24,6 +24,7 @@ The application supports forwarding incoming messages to a webhook URL configure
 - Configurable retry attempts (default: 3, range: 0-10)
 - Optional webhook request signing for security
 - Enhanced payload with timestamp and message type
+- Compatibility fields for common webhook consumers (number, message, type)
 - Exponential backoff retry mechanism for failed requests
 - Real-time Updates: Get real-time status updates through Socket.IO
 
