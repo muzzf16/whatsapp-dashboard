@@ -19,6 +19,15 @@ const startSessionController = (req, res) => {
 
 const sendMessageController = async (req, res) => {
     const { sessionId, number, message } = req.body;
+    
+    // Validate required fields
+    if (!sessionId) {
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'sessionId is required and cannot be empty' 
+        });
+    }
+    
     const validation = validateMessageData(number, message);
     if (!validation.isValid) {
         return res.status(400).json({ status: 'error', message: validation.error });
@@ -28,13 +37,24 @@ const sendMessageController = async (req, res) => {
         await whatsappService.sendMessage(sessionId, number, message);
         res.status(200).json({ status: 'success', message: `Message sent to ${number}` });
     } catch (error) {
-        res.status(500).json({ status: 'error', message: 'Failed to send message.', details: error.message });
+        res.status(500).json({ 
+            status: 'error', 
+            message: 'Failed to send message.', 
+            details: error.message 
+        });
     }
 };
 
 const sendMediaMessageController = async (req, res) => {
     const { sessionId, number, message, mediaUrl, mediaType } = req.body;
 
+    if (!sessionId) {
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'sessionId is required and cannot be empty' 
+        });
+    }
+    
     if (!number || (!mediaUrl && !req.file) || !mediaType) {
         return res.status(400).json({ status: 'error', message: 'Number, mediaType, and either mediaUrl or a file are required.' });
     }
@@ -55,12 +75,24 @@ const sendMediaMessageController = async (req, res) => {
 
 const getStatusController = (req, res) => {
     const { sessionId } = req.params;
+    if (!sessionId) {
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'sessionId is required and cannot be empty' 
+        });
+    }
     const status = whatsappService.getStatus(sessionId);
     res.status(200).json(status);
 };
 
 const getQRCodeController = async (req, res) => {
     const { sessionId } = req.params;
+    if (!sessionId) {
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'sessionId is required and cannot be empty' 
+        });
+    }
     const { qr } = whatsappService.getQRCode(sessionId);
     if (qr) {
         const qrUrl = await qrcode.toDataURL(qr);
@@ -72,6 +104,12 @@ const getQRCodeController = async (req, res) => {
 
 const getMessagesController = (req, res) => {
     const { sessionId } = req.params;
+    if (!sessionId) {
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'sessionId is required and cannot be empty' 
+        });
+    }
     const messages = whatsappService.getMessages(sessionId);
     res.status(200).json(messages);
 };
@@ -79,7 +117,10 @@ const getMessagesController = (req, res) => {
 const disconnectSessionController = async (req, res) => {
     const { sessionId } = req.body;
     if (!sessionId) {
-        return res.status(400).json({ status: 'error', message: 'sessionId is required' });
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'sessionId is required and cannot be empty' 
+        });
     }
     await whatsappService.disconnectWhatsApp(sessionId);
     res.status(200).json({ status: 'success', message: `Session ${sessionId} disconnected` });
@@ -354,10 +395,17 @@ const sendBroadcastFromFileController = async (req, res) => {
 
     const { message, delay, sessionId } = req.body;
 
-    if (!message || !delay || !sessionId) {
+    if (!sessionId) {
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'sessionId is required and cannot be empty' 
+        });
+    }
+    
+    if (!message || !delay) {
         return res.status(400).json({
             status: 'error',
-            message: 'Message, delay, and sessionId are required.'
+            message: 'Message and delay are required.'
         });
     }
 

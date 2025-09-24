@@ -116,9 +116,9 @@ The SQLite database contains a single `contacts` table:
 - `POST /api/sessions/disconnect` - Disconnect a WhatsApp session
 
 ### Messaging
-- `POST /api/send-message` - Send a text message
-- `POST /api/send-media` - Send a media message (image/document)
-- `POST /api/broadcast-from-file` - Send broadcast messages from a file
+- `POST /api/send-message` - Send a text message (requires valid sessionId)
+- `POST /api/send-media` - Send a media message (image/document) (requires valid sessionId)
+- `POST /api/broadcast-from-file` - Send broadcast messages from a file (requires valid sessionId)
 
 ### Status & Data
 - `GET /api/:sessionId/status` - Get connection status
