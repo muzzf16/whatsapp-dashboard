@@ -1,34 +1,91 @@
 const express = require('express');
+const multer = require('multer');
 const {
-    startConnectionController,
-    disconnectConnectionController,
-    disconnectAllConnectionsController,
     sendMessageController,
-    sendBroadcastMessageController,
     getStatusController,
-    getMessagesController,
-    getOutgoingMessagesController,
     getQRCodeController,
-    getAllConnectionsController,
-    getWebhookController,
-    updateWebhookController,
+    getMessagesController,
+    getQRCodeController,
+    getWebhookController,    // BARU
+    updateWebhookController, // BARU
 } = require('../controllers/whatsappController');
 
 const router = express.Router();
 
-router.post('/connections/start', startConnectionController);
-router.post('/connections/disconnect', disconnectConnectionController);
-router.post('/connections/disconnect-all', disconnectAllConnectionsController);
-router.get('/connections', getAllConnectionsController);
+router.post('/send-message', sendMessageController);
+router.get('/status', getStatusController);
+router.get('/messages', getMessagesController);
+router.get('/qrcode', getQRCodeController);
 
-router.post('/:connectionId/send-message', sendMessageController);
-router.post('/:connectionId/broadcast-message', sendBroadcastMessageController);
-router.get('/:connectionId/status', getStatusController);
-router.get('/:connectionId/messages', getMessagesController);
-router.get('/:connectionId/outgoing-messages', getOutgoingMessagesController);
-router.get('/:connectionId/qrcode', getQRCodeController);
-
+// BARU: Route untuk mengelola webhook
 router.get('/webhook', getWebhookController);
+
+/**
+ * @swagger
+ * /api/webhook:
+ *   post:
+ *     summary: Update the webhook configuration
+ *     tags: [Webhook]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 description: Webhook URL to receive incoming messages
+ *               timeout:
+ *                 type: number
+ *                 description: Timeout for webhook requests in milliseconds (1000-60000)
+ *                 example: 10000
+ *               retries:
+ *                 type: number
+ *                 description: Number of retry attempts for failed webhook requests (0-10)
+ *                 example: 3
+ *               secret:
+ *                 type: string
+ *                 description: Secret for signing webhook requests (optional, can be null to remove)
+ *     responses:
+ *       200:
+ *         description: Webhook configuration updated successfully
+ *       400:
+ *         description: Invalid configuration provided
+ *       500:
+ *         description: Failed to update webhook config
+ */
 router.post('/webhook', updateWebhookController);
+
+/**
+ * @swagger
+ * tags:
+ *   name: Server
+ *   description: API for managing the server
+ */
+
+/**
+ * @swagger
+ * /api/toggle-server:
+ *   post:
+ *     summary: Toggle the server connection
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [connect, disconnect]
+ *     responses:
+ *       200:
+ *         description: Server toggled successfully
+ *       500:
+ *         description: Failed to toggle server
+ */
+
 
 module.exports = router;

@@ -1,70 +1,62 @@
-# Getting Started with Create React App
+# WhatsApp Dashboard Client
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is the frontend for the WhatsApp Dashboard application, built with React.
 
-## Available Scripts
+## Project Structure
 
-In the project directory, you can run:
+```
+src/
+├── components/          # Reusable UI components
+│   ├── QRCodeDisplay.js     # QR code display component
+│   ├── MessageSender.js     # Message sending form
+│   ├── WebhookManager.js    # Webhook configuration form
+│   ├── MessageLog.js        # Incoming messages display
+│   ├── StatusBadge.js       # Connection status indicator
+│   └── Notification.js      # Notification component
+├── App.js               # Main application component
+└── index.js             # Entry point
+```
 
-### `npm start`
+## Components
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### QRCodeDisplay
+Displays the QR code for WhatsApp authentication when the connection status is "waiting for QR scan".
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### MessageSender
+Form component for sending messages through WhatsApp. It includes validation to ensure messages can only be sent when connected.
 
-### `npm test`
+### WebhookManager
+Form component for configuring the webhook URL where incoming messages will be forwarded.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### MessageLog
+Displays a log of incoming messages in a scrollable list with timestamps.
 
-### `npm run build`
+### StatusBadge
+Shows the current connection status with color-coded indicators:
+- Green: Connected
+- Yellow: Connecting
+- Red: Disconnected
+- Blue: Waiting for QR scan
+- Gray: Logged out
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Notification
+Displays temporary notifications for success and error messages.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## API Integration
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The frontend communicates with the backend API through the following endpoints:
 
-### `npm run eject`
+- `GET /api/status` - Get connection status
+- `GET /api/qrcode` - Get QR code for authentication
+- `GET /api/messages` - Get recent incoming messages
+- `POST /api/send-message` - Send a message
+- `GET /api/webhook` - Get current webhook URL
+- `POST /api/webhook` - Update webhook URL
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Socket.IO Events
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The frontend uses Socket.IO to receive real-time updates:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- `status` - Connection status updates
+- `qr_code` - QR code data
+- `new_message` - New incoming messages
