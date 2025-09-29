@@ -9,8 +9,8 @@ async function readConfig() {
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
-            await writeConfig({ webhookUrl: "" });
-            return { webhookUrl: "" };
+            await writeConfig({ webhookUrl: "", webhookSecret: "" });
+            return { webhookUrl: "", webhookSecret: "" };
         }
         console.error("Error reading config file:", error);
         throw error;
@@ -37,7 +37,20 @@ const setWebhookUrl = async (url) => {
     await writeConfig(config);
 };
 
+const getWebhookSecret = async () => {
+    const config = await readConfig();
+    return config.webhookSecret || "";
+};
+
+const setWebhookSecret = async (secret) => {
+    const config = await readConfig();
+    config.webhookSecret = secret;
+    await writeConfig(config);
+};
+
 module.exports = {
     getWebhookUrl,
     setWebhookUrl,
+    getWebhookSecret,
+    setWebhookSecret,
 };
